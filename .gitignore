@@ -1,5 +1,5 @@
-target/
 bot.properties
+target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

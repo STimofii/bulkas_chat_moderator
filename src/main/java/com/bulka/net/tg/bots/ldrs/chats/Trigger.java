@@ -13,7 +13,7 @@ public class Trigger implements Serializable {
     }
 
     public Trigger(String text, boolean strict, boolean lethal, boolean advancedCheck) {
-        this.text = text;
+        this.text = text.toLowerCase();
         this.strict = strict;
         this.lethal = lethal;
         this.advancedCheck = advancedCheck;

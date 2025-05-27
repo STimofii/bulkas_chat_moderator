@@ -18,7 +18,7 @@ public class Chat implements Serializable {
     private String title = "";
     private List<Long> whitelist = new ArrayList<>();
     private List<Trigger> triggers = new ArrayList<>();
-    private String triggerText = "Your text may contain prohibited text. If you are not a bot, click the button below.";
+    private String triggerText = "Your text may contain prohibited text. If you are not a bot, click the button below.\nYou have 60 seconds, after your message will be deleted";
     private boolean canUserUseCommands = false;
     private boolean enableTriggers = true;
     private transient List<Long> admins = new ArrayList<>();
@@ -38,6 +38,15 @@ public class Chat implements Serializable {
 
     public boolean isAdmin(long id){
         return admins.contains(id);
+    }
+
+    public boolean containsTrigger(String triggerText){
+        for (Trigger trigger : triggers){
+            if(trigger.getText().equals(triggerText)){
+                return true;
+            }
+        }
+        return false;
     }
 
 

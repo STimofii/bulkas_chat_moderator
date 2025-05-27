@@ -25,10 +25,7 @@ import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
@@ -40,12 +37,18 @@ public class Bot extends TelegramLongPollingBot {
     private HashMap<Long, Chat> chats = new HashMap<>();
     private HashMap<String, Command> commands = new HashMap<>();
     private HashMap<Long, SettingsSession> settingsSessions = new HashMap<>();
+    private HashMap<String, Timer> waitingTriggerTimers = new HashMap<>();
 
     public List<InlineKeyboardButton> closeSettingsKeyboardButtonRow = new ArrayList<>();
     public List<InlineKeyboardButton> backToGeneralSettingsKeyboardButtonRow = new ArrayList<>();
     public List<InlineKeyboardButton> backToTriggersSettingsKeyboardButtonRow = new ArrayList<>();
+    public List<InlineKeyboardButton> backToWhitelistSettingsKeyboardButtonRow = new ArrayList<>();
     public InlineKeyboardButton arrowLeftSettingsKeyboardButton;
     public InlineKeyboardButton arrowRightSettingsKeyboardButton;
+    public InlineKeyboardButton arrowLeftENDSettingsKeyboardButton;
+    public InlineKeyboardButton arrowRightENDSettingsKeyboardButton;
+
+    public InlineKeyboardButton imNotABotKeyboardButton;
 
     public Bot(DefaultBotOptions defaultBotOptions, String token, String username) {
         super(defaultBotOptions, token);
@@ -61,16 +64,13 @@ public class Bot extends TelegramLongPollingBot {
         closeSettingsKeyboardButtonRow.add(createInlineKeyboardButton("Close settings", "close_settings"));
         backToGeneralSettingsKeyboardButtonRow.add(createInlineKeyboardButton("Back to general", "back_to_general_settings"));
         backToTriggersSettingsKeyboardButtonRow.add(createInlineKeyboardButton("Back to triggers", "back_to_triggers_settings"));
+        backToWhitelistSettingsKeyboardButtonRow.add(createInlineKeyboardButton("Back to whitelist", "back_to_whitelist_settings"));
         arrowLeftSettingsKeyboardButton = createInlineKeyboardButton("⬅\uFE0F", "arrow_left");
         arrowRightSettingsKeyboardButton = createInlineKeyboardButton("➡\uFE0F", "arrow_right");
-//        SendMessage sendMessage = new SendMessage();
-//        sendMessage.setText("Hello, World!");
-//        sendMessage.setChatId(6351326337L);
-//        try {
-//            execute(sendMessage);
-//        } catch (TelegramApiException e) {
-//            throw new RuntimeException(e);
-//        }
+        arrowLeftENDSettingsKeyboardButton = createInlineKeyboardButton("⏮\uFE0F", "arrow_left_end");
+        arrowRightENDSettingsKeyboardButton = createInlineKeyboardButton("⏭\uFE0F", "arrow_right_end");
+
+        imNotABotKeyboardButton = createInlineKeyboardButton("I`m not a bot", "im_not_a_bot");
 
         commands.put("start", new Command("start", false) {
             @Override
@@ -93,9 +93,84 @@ public class Bot extends TelegramLongPollingBot {
                 sendMessage(sendMessage);
             }
         });
+        commands.put("delete_chat_from_save", new Command("delete_chat_from_save", false) {
+            @Override
+            public void execute(Update update, String arguments, Chat chat) {
+                deleteMessage(chat.getId(), update.getMessage().getMessageId());
+                chats.put(chat.getId(), new Chat(chat.getId(), chat.getTitle()));
+                chat = chats.get(chat.getId());
+                settingsSessions.remove(chat.getId());
+                chat.reloadAdmins();
+
+                saveChat(chat);
+            }
+        });
+        commands.put("whitelist", new Command("whitelist", false) {
+            @Override
+            public void execute(Update update, String arguments, Chat chat) {
+                deleteMessage(chat.getId(), update.getMessage().getMessageId());
+                SendMessage sendMessage = new SendMessage();
+                sendMessage.setChatId(chat.getId());
+
+                StringBuilder sb = new StringBuilder("Whitelist:\n");
+                for (long userID : chat.getWhitelist()){
+                    sb.append(userID).append(", ");
+                }
+                sendMessage.setText(sb.toString());
+                sendMessage(sendMessage);
+            }
+        });
+        commands.put("add_to_whitelist", new Command("add_to_whitelist", false) {
+            @Override
+            public void execute(Update update, String arguments, Chat chat) {
+                deleteMessage(chat.getId(), update.getMessage().getMessageId());
+                SendMessage sendMessage = new SendMessage();
+                sendMessage.setChatId(chat.getId());
+                long userID = 0;
+                try {
+                    userID = Long.parseLong(arguments);
+                } catch (Exception e){
+                    userID = update.getMessage().getReplyToMessage().getFrom().getId();
+                }
+
+                if(userID != 0) {
+                    if(chat.getWhitelist().contains(userID)){
+                        sendMessage.setText("User " + userID + " already in the whitelist");
+                    } else {
+                        chat.getWhitelist().add(userID);
+                        sendMessage.setText("Added user " + userID + " to the whitelist");
+                    }
+                }
+                sendMessage(sendMessage);
+                saveChat(chat);
+            }
+        });
+        commands.put("remove_from_whitelist", new Command("remove_from_whitelist", false) {
+            @Override
+            public void execute(Update update, String arguments, Chat chat) {
+                deleteMessage(chat.getId(), update.getMessage().getMessageId());
+                SendMessage sendMessage = new SendMessage();
+                sendMessage.setChatId(chat.getId());
+                long userID = 0;
+                try {
+                    userID = Long.parseLong(arguments);
+                } catch (Exception e){
+                    userID = update.getMessage().getReplyToMessage().getFrom().getId();
+                }
+
+                if(userID != 0) {
+                    if(chat.getWhitelist().remove(userID)) {
+                        sendMessage.setText("Removed user " + userID + " from the whitelist");
+                    } else {
+                        sendMessage.setText("User " + userID + " was not in the whitelist");
+                    }
+                }
+                sendMessage(sendMessage);
+                saveChat(chat);
+            }
+        });
 
         commands.put("settings", new Command("settings", true) {
-            //TODO
             @Override
             public void execute(Update update, String arguments, Chat chat) {
                 deleteMessage(chat.getId(), update.getMessage().getMessageId());
@@ -111,26 +186,40 @@ public class Bot extends TelegramLongPollingBot {
                 settingsSession.setSettingsMenu(SettingsMenu.GENERAL);
                 settingsSession.setPage(0);
                 InlineKeyboardMarkup inlineKeyboardMarkup = getKeyboardMarkup(settingsSession);
-
                 sendMessage.setText(settingsSession.getText());
-
                 sendMessage.setReplyMarkup(inlineKeyboardMarkup);
-
                 settingsSession.setMessageID(sendMessage(sendMessage));
             }
         });
-//        commands.put("add_trigger", new Command("add_trigger", true) {
-//            //TODO
-//            @Override
-//            public void execute(Update update, String arguments, Chat chat) {
-//                deleteMessage(chat.getId(), update.getMessage().getMessageId());
-//                saveChat(chat);
-//                SendMessage sendMessage = new SendMessage();
-//                sendMessage.setChatId(chat.getId());
-//                sendMessage.setText("Added trigger!");
-//                sendMessage(sendMessage);
-//            }
-//        });
+        commands.put("add_trigger", new Command("add_trigger", true) {
+            @Override
+            public void execute(Update update, String arguments, Chat chat) {
+                deleteMessage(chat.getId(), update.getMessage().getMessageId());
+                saveChat(chat);
+                Message replyTo = update.getMessage().getReplyToMessage();
+                if(!chat.containsTrigger(replyTo.getText())){
+                    chat.getTriggers().add(new Trigger(replyTo.getText(), false, false, false));
+                }
+                deleteMessage(replyTo.getChatId(), replyTo.getMessageId());
+
+                SendMessage sendMessage = new SendMessage();
+                sendMessage.setChatId(chat.getId());
+
+                SettingsSession settingsSession = new SettingsSession();
+                if (settingsSessions.containsKey(chat.getId())) {
+                    deleteMessage(chat.getId(), settingsSessions.get(chat.getId()).getMessageID());
+                }
+                settingsSessions.put(chat.getId(), settingsSession);
+                settingsSession.setChat(chat);
+                settingsSession.setSettingsMenu(SettingsMenu.TRIGGER);
+                settingsSession.setCurrentListID(chat.getTriggers().size()-1);
+                InlineKeyboardMarkup inlineKeyboardMarkup = getKeyboardMarkup(settingsSession);
+                sendMessage.setText(settingsSession.getText());
+                sendMessage.setReplyMarkup(inlineKeyboardMarkup);
+                settingsSession.setMessageID(sendMessage(sendMessage));
+                saveChat(chat);
+            }
+        });
     }
 
     public InlineKeyboardMarkup getKeyboardMarkup(SettingsSession settingsSession) {
@@ -170,11 +259,13 @@ public class Bot extends TelegramLongPollingBot {
 
             case TRIGGERS: {
                 int page = settingsSession.getPage();
-                settingsSession.setText("Triggers\nPage: " + (page + 1) + "/" + (settingsSession.getPages()));
+                settingsSession.setText("Triggers\nPage: " + (page + 1) + "/" + (settingsSession.getTriggerPages()));
                 if (page != 0) {
                     rowArrows.add(arrowLeftSettingsKeyboardButton);
+                    rowArrows.add(arrowLeftENDSettingsKeyboardButton);
                 }
-                if (page != settingsSession.getPages() - 1) {
+                if (page != settingsSession.getTriggerPages() - 1) {
+                    rowArrows.add(arrowRightENDSettingsKeyboardButton);
                     rowArrows.add(arrowRightSettingsKeyboardButton);
                 }
                 for (int i = 0; i < 8; i++) {
@@ -206,6 +297,7 @@ public class Bot extends TelegramLongPollingBot {
                 settingsSession.setText("Trigger: " + triggerText);
                 List<InlineKeyboardButton> row1 = new ArrayList<>();
                 List<InlineKeyboardButton> row2 = new ArrayList<>();
+                List<InlineKeyboardButton> row3 = new ArrayList<>();
                 if (trigger.isStrict()) {
                     row1.add(createInlineKeyboardButton("Strict ✅", "do_trigger_not_strict_" + triggerID));
                 } else {
@@ -221,17 +313,12 @@ public class Bot extends TelegramLongPollingBot {
                 } else {
                     row2.add(createInlineKeyboardButton("AdvancedCheck ❌", "do_trigger_advanced_check_" + triggerID));
                 }
+                row3.add(createInlineKeyboardButton("Remove trigger", "remove_trigger_" + triggerID));
                 keyboard.add(row1);
                 keyboard.add(row2);
+                keyboard.add(row3);
                 keyboard.add(backToTriggersSettingsKeyboardButtonRow);
                 keyboard.add(backToGeneralSettingsKeyboardButtonRow);
-                break;
-            }
-
-            case WHITELIST: {
-                break;
-            }
-            case WHITEUSER: {
                 break;
             }
 
@@ -409,11 +496,13 @@ public class Bot extends TelegramLongPollingBot {
                         for (Trigger trigger : chat.getTriggers()) {
                             if (trigger.isStrict()) {
                                 if (text.equals(trigger.getText())) {
-                                    checkTriggerFinally(trigger, message, chat);
+                                    if(checkTriggerFinally(trigger, message, chat))
+                                        break;
                                 }
                             } else {
                                 if (text.contains(trigger.getText())) {
-                                    checkTriggerFinally(trigger, message, chat);
+                                    if(checkTriggerFinally(trigger, message, chat))
+                                        break;
                                 }
                             }
                         }
@@ -421,21 +510,29 @@ public class Bot extends TelegramLongPollingBot {
                 }
             } else if (update.hasCallbackQuery()) {
                 CallbackQuery callback = update.getCallbackQuery();
-                settingsSessions.get(update.getCallbackQuery().getMessage().getChatId()).onGetCallback(callback);
+                if(Objects.equals(callback.getData(), "im_not_a_bot")){
+                    waitingTriggerTimers.remove(callback.getMessage().getChatId() + "/" + callback.getMessage().getMessageId());
+                    deleteMessage(callback.getMessage().getChatId(), callback.getMessage().getMessageId());
+                } else {
+                    settingsSessions.get(update.getCallbackQuery().getMessage().getChatId()).onGetCallback(callback);
+                }
             }
         } catch (RuntimeException e) {
             logger.log(Level.SEVERE, "Error in handling update", e);
         }
     }
 
-    private void checkTriggerFinally(Trigger trigger, Message message, Chat chat) {
+    private boolean checkTriggerFinally(Trigger trigger, Message message, Chat chat) {
         if (trigger.isAdvancedCheck()) {
             if (advancedCheck(message.getFrom())) {
                 punishTrigger(chat, trigger, message);
+                return true;
             }
         } else {
             punishTrigger(chat, trigger, message);
+            return  true;
         }
+        return  false;
     }
 
     public boolean advancedCheck(User user) {
@@ -455,7 +552,24 @@ public class Bot extends TelegramLongPollingBot {
             sendTriggerMessage.setChatId(chat.getId());
             sendTriggerMessage.setReplyToMessageId(message.getMessageId());
             sendTriggerMessage.setText(chat.getTriggerText());
-            sendMessage(sendTriggerMessage);
+            List<InlineKeyboardButton> row = new ArrayList<>();
+            row.add(imNotABotKeyboardButton);
+            List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+            keyboard.add(row);
+            InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup(keyboard);
+            sendTriggerMessage.setReplyMarkup(inlineKeyboardMarkup);
+            int sednedID = sendMessage(sendTriggerMessage);
+            Timer timer = new Timer();
+            TimerTask timerTask = new TimerTask() {
+                @Override
+                public void run() {
+                    deleteMessage(chat.getId(), message.getMessageId());
+                    deleteMessage(chat.getId(), sednedID);
+                }
+            };
+            //TODO: Изменяемое время
+            timer.schedule(timerTask, 60_000);
+            waitingTriggerTimers.put(chat.getId() + "/" + message.getMessageId(), timer);
         }
     }
 

@@ -2,7 +2,6 @@ package com.bulka.net.tg.bots.ldrs;
 
 import com.bulka.net.tg.bots.ldrs.chats.Chat;
 import com.bulka.net.tg.bots.ldrs.chats.Trigger;
-import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 
@@ -10,7 +9,7 @@ public class SettingsSession {
     private SettingsMenu settingsMenu = SettingsMenu.NONE;
     private int page = 0;
     private int currentListID = 0;
-    private int pages = 0;
+    private int triggerPages = 0;
     private Chat chat;
     private int messageID;
     private String text = "Settings";
@@ -32,7 +31,7 @@ public class SettingsSession {
     }
 
     public void onGetCallback(CallbackQuery callback) {
-        pages = (int) Math.ceil((double) chat.getTriggers().size() / 8);
+        triggerPages = Math.max((int) Math.ceil((double) chat.getTriggers().size() / 8), 1);
         long userID = callback.getFrom().getId();
         boolean isAdmin = chat.isAdmin(userID);
         if ((isAdmin || chat.isCanUserUseCommands())) {
@@ -73,8 +72,17 @@ public class SettingsSession {
                     updateSettingsMenu();
                     break;
                 case "arrow_right":
-                    if(page < pages)
+                    if(page < triggerPages)
                         page++;
+                    updateSettingsMenu();
+                    break;
+
+                case "arrow_left_end":
+                    page = 0;
+                    updateSettingsMenu();
+                    break;
+                case "arrow_right_end":
+                    page = triggerPages-1;
                     updateSettingsMenu();
                     break;
 
@@ -139,6 +147,14 @@ public class SettingsSession {
                         Main.getBot().saveChat(chat);
                         updateSettingsMenu();
                     }
+                    if(callbackData.startsWith("remove_trigger_")){
+                        int triggerID = Integer.parseInt(callbackData.replace("remove_trigger_", ""));
+                        chat.getTriggers().remove(triggerID);
+                        settingsMenu = SettingsMenu.TRIGGERS;
+                        currentListID = 0;
+                        Main.getBot().saveChat(chat);
+                        updateSettingsMenu();
+                    }
                     break;
                 }
         } else {
@@ -198,8 +214,8 @@ public class SettingsSession {
         this.text = text;
     }
 
-    public int getPages() {
-        return pages;
+    public int getTriggerPages() {
+        return triggerPages;
     }
 
     public int getCurrentListID() {
