@@ -11,10 +11,7 @@ import org.telegram.telegrambots.meta.api.methods.groupadministration.UnbanChatM
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
-import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
-import org.telegram.telegrambots.meta.api.objects.Message;
-import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.User;
+import org.telegram.telegrambots.meta.api.objects.*;
 import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMember;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
@@ -35,14 +32,14 @@ public class Bot extends TelegramLongPollingBot {
     private String username = "";
     private static final Logger logger = Logger.getLogger(Bot.class.getName());
     private HashMap<Long, Chat> chats = new HashMap<>();
-    private HashMap<String, Command> commands = new HashMap<>();
-    private HashMap<Long, SettingsSession> settingsSessions = new HashMap<>();
-    private HashMap<String, Timer> waitingTriggerTimers = new HashMap<>();
+    private final HashMap<String, Command> commands = new HashMap<>();
+    private final HashMap<Long, SettingsSession> settingsSessions = new HashMap<>();
+    private final HashMap<String, Timer> waitingTriggerTimers = new HashMap<>();
 
     public List<InlineKeyboardButton> closeSettingsKeyboardButtonRow = new ArrayList<>();
     public List<InlineKeyboardButton> backToGeneralSettingsKeyboardButtonRow = new ArrayList<>();
     public List<InlineKeyboardButton> backToTriggersSettingsKeyboardButtonRow = new ArrayList<>();
-    public List<InlineKeyboardButton> backToWhitelistSettingsKeyboardButtonRow = new ArrayList<>();
+//    public List<InlineKeyboardButton> backToWhitelistSettingsKeyboardButtonRow = new ArrayList<>();
     public InlineKeyboardButton arrowLeftSettingsKeyboardButton;
     public InlineKeyboardButton arrowRightSettingsKeyboardButton;
     public InlineKeyboardButton arrowLeftENDSettingsKeyboardButton;
@@ -61,10 +58,10 @@ public class Bot extends TelegramLongPollingBot {
             throw new RuntimeException(e);
         }
 
-        closeSettingsKeyboardButtonRow.add(createInlineKeyboardButton("Close settings", "close_settings"));
-        backToGeneralSettingsKeyboardButtonRow.add(createInlineKeyboardButton("Back to general", "back_to_general_settings"));
-        backToTriggersSettingsKeyboardButtonRow.add(createInlineKeyboardButton("Back to triggers", "back_to_triggers_settings"));
-        backToWhitelistSettingsKeyboardButtonRow.add(createInlineKeyboardButton("Back to whitelist", "back_to_whitelist_settings"));
+        closeSettingsKeyboardButtonRow.add(createInlineKeyboardButton("Close settings✖\uFE0F", "close_settings"));
+        backToGeneralSettingsKeyboardButtonRow.add(createInlineKeyboardButton("Back to general\uD83D\uDD19", "back_to_general_settings"));
+        backToTriggersSettingsKeyboardButtonRow.add(createInlineKeyboardButton("Back to triggers☑\uFE0F", "back_to_triggers_settings"));
+//        backToWhitelistSettingsKeyboardButtonRow.add(createInlineKeyboardButton("Back to whitelist", "back_to_whitelist_settings"));
         arrowLeftSettingsKeyboardButton = createInlineKeyboardButton("⬅\uFE0F", "arrow_left");
         arrowRightSettingsKeyboardButton = createInlineKeyboardButton("➡\uFE0F", "arrow_right");
         arrowLeftENDSettingsKeyboardButton = createInlineKeyboardButton("⏮\uFE0F", "arrow_left_end");
@@ -78,7 +75,8 @@ public class Bot extends TelegramLongPollingBot {
                 deleteMessage(chat.getId(), update.getMessage().getMessageId());
                 SendMessage sendMessage = new SendMessage();
                 sendMessage.setChatId(chat.getId());
-                sendMessage.setText("Hello, World!");
+                sendMessage.setText("Hello, World!\nThis is my documentation:\n\uD83C\uDDEC\uD83C\uDDE7 - https://telegra.ph/Bulkas-anti-spam-bot-05-28\n\uD83C\uDDFA\uD83C\uDDE6 - https://telegra.ph/Bulochnij-anti-spam-bot-05-28");
+                sendMessage.setDisableWebPagePreview(true);
                 sendMessage(sendMessage);
             }
         });
@@ -250,7 +248,7 @@ public class Bot extends TelegramLongPollingBot {
                 } else {
                     row2.add(createInlineKeyboardButton("Triggers ❌", "enable_triggers"));
                 }
-                row3.add(createInlineKeyboardButton("Triggers Settings", "goto_triggers"));
+                row3.add(createInlineKeyboardButton("Triggers Settings ⚙\uFE0F", "goto_triggers"));
                 keyboard.add(row1);
                 keyboard.add(row2);
                 keyboard.add(row3);
@@ -462,6 +460,10 @@ public class Bot extends TelegramLongPollingBot {
             if (update.hasMessage()) {
                 Message message = update.getMessage();
                 if (message.hasText()) {
+                    if(message.getChat().isUserChat()){
+                        sendMessage(message.getChatId(), "Sorry, I works only in groups");
+                        return;
+                    }
                     boolean canBeSpam = true;
                     String text = message.getText();
 
@@ -511,6 +513,7 @@ public class Bot extends TelegramLongPollingBot {
             } else if (update.hasCallbackQuery()) {
                 CallbackQuery callback = update.getCallbackQuery();
                 if(Objects.equals(callback.getData(), "im_not_a_bot")){
+                    //TODO: чтобы отменять мог только человек который отправил сообщение или админ
                     waitingTriggerTimers.remove(callback.getMessage().getChatId() + "/" + callback.getMessage().getMessageId());
                     deleteMessage(callback.getMessage().getChatId(), callback.getMessage().getMessageId());
                 } else {
@@ -536,11 +539,7 @@ public class Bot extends TelegramLongPollingBot {
     }
 
     public boolean advancedCheck(User user) {
-        if (user.getId() > Main.ADVANCED_ID_CHECK) {
-            return true;
-        }
-
-        return false;
+        return user.getId() > Main.ADVANCED_ID_CHECK;
     }
 
     public void punishTrigger(Chat chat, Trigger trigger, Message message) {
@@ -558,13 +557,13 @@ public class Bot extends TelegramLongPollingBot {
             keyboard.add(row);
             InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup(keyboard);
             sendTriggerMessage.setReplyMarkup(inlineKeyboardMarkup);
-            int sednedID = sendMessage(sendTriggerMessage);
+            int sendedID = sendMessage(sendTriggerMessage);
             Timer timer = new Timer();
             TimerTask timerTask = new TimerTask() {
                 @Override
                 public void run() {
                     deleteMessage(chat.getId(), message.getMessageId());
-                    deleteMessage(chat.getId(), sednedID);
+                    deleteMessage(chat.getId(), sendedID);
                 }
             };
             //TODO: Изменяемое время

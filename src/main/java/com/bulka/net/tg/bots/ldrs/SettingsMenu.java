@@ -6,5 +6,5 @@ public enum SettingsMenu {
     TRIGGERS,
     TRIGGER,
     WHITELIST,
-    WHITEUSER;
+    WHITEUSER
 }
