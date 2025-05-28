@@ -71,33 +71,54 @@ public class SettingsSession {
                        page--;
                     updateSettingsMenu();
                     break;
+
                 case "arrow_right":
                     if(page < triggerPages)
                         page++;
                     updateSettingsMenu();
                     break;
-
                 case "arrow_left_end":
                     page = 0;
                     updateSettingsMenu();
                     break;
+
                 case "arrow_right_end":
                     page = triggerPages-1;
                     updateSettingsMenu();
                     break;
-
                 case "back_to_general_settings":
                     settingsMenu = SettingsMenu.GENERAL;
                     currentListID = 0;
                     page = 0;
                     updateSettingsMenu();
                     break;
+
                 case "close_settings":
                     currentListID = 0;
                     page = 0;
                     Main.getBot().deleteMessage(chat.getId(), messageID);
                     Main.getBot().getSettingsSessions().remove(chat.getId());
                     break;
+
+
+                case "goto_lang_settings":
+                    settingsMenu = SettingsMenu.LANGUAGES;
+                    updateSettingsMenu();
+                    currentListID = 0;
+                    break;
+                case "select_lang_en":
+                    chat.setLanguage("en");
+                    Main.getBot().saveChat(chat);
+                    settingsMenu = SettingsMenu.GENERAL;
+                    updateSettingsMenu();
+                    break;
+                case "select_lang_uk":
+                    chat.setLanguage("uk");
+                    Main.getBot().saveChat(chat);
+                    settingsMenu = SettingsMenu.GENERAL;
+                    updateSettingsMenu();
+                    break;
+
 
                 default:
                     if(callbackData.startsWith("selected_trigger_")){

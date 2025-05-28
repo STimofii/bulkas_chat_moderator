@@ -28,24 +28,20 @@ import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 public class Bot extends TelegramLongPollingBot {
+    private static final Logger logger = Logger.getLogger(Bot.class.getName());
     public static final String SAVES_PATH = "saves";
     private String username = "";
-    private static final Logger logger = Logger.getLogger(Bot.class.getName());
     private HashMap<Long, Chat> chats = new HashMap<>();
     private final HashMap<String, Command> commands = new HashMap<>();
     private final HashMap<Long, SettingsSession> settingsSessions = new HashMap<>();
     private final HashMap<String, Timer> waitingTriggerTimers = new HashMap<>();
 
-    public List<InlineKeyboardButton> closeSettingsKeyboardButtonRow = new ArrayList<>();
-    public List<InlineKeyboardButton> backToGeneralSettingsKeyboardButtonRow = new ArrayList<>();
-    public List<InlineKeyboardButton> backToTriggersSettingsKeyboardButtonRow = new ArrayList<>();
-//    public List<InlineKeyboardButton> backToWhitelistSettingsKeyboardButtonRow = new ArrayList<>();
     public InlineKeyboardButton arrowLeftSettingsKeyboardButton;
     public InlineKeyboardButton arrowRightSettingsKeyboardButton;
     public InlineKeyboardButton arrowLeftENDSettingsKeyboardButton;
     public InlineKeyboardButton arrowRightENDSettingsKeyboardButton;
 
-    public InlineKeyboardButton imNotABotKeyboardButton;
+    private LocalizationManager lm;
 
     public Bot(DefaultBotOptions defaultBotOptions, String token, String username) {
         super(defaultBotOptions, token);
@@ -58,16 +54,14 @@ public class Bot extends TelegramLongPollingBot {
             throw new RuntimeException(e);
         }
 
-        closeSettingsKeyboardButtonRow.add(createInlineKeyboardButton("Close settings✖\uFE0F", "close_settings"));
-        backToGeneralSettingsKeyboardButtonRow.add(createInlineKeyboardButton("Back to general\uD83D\uDD19", "back_to_general_settings"));
-        backToTriggersSettingsKeyboardButtonRow.add(createInlineKeyboardButton("Back to triggers☑\uFE0F", "back_to_triggers_settings"));
-//        backToWhitelistSettingsKeyboardButtonRow.add(createInlineKeyboardButton("Back to whitelist", "back_to_whitelist_settings"));
+
         arrowLeftSettingsKeyboardButton = createInlineKeyboardButton("⬅\uFE0F", "arrow_left");
         arrowRightSettingsKeyboardButton = createInlineKeyboardButton("➡\uFE0F", "arrow_right");
         arrowLeftENDSettingsKeyboardButton = createInlineKeyboardButton("⏮\uFE0F", "arrow_left_end");
         arrowRightENDSettingsKeyboardButton = createInlineKeyboardButton("⏭\uFE0F", "arrow_right_end");
 
-        imNotABotKeyboardButton = createInlineKeyboardButton("I`m not a bot", "im_not_a_bot");
+        lm = new LocalizationManager();
+        lm.load();
 
         commands.put("start", new Command("start", false) {
             @Override
@@ -75,7 +69,7 @@ public class Bot extends TelegramLongPollingBot {
                 deleteMessage(chat.getId(), update.getMessage().getMessageId());
                 SendMessage sendMessage = new SendMessage();
                 sendMessage.setChatId(chat.getId());
-                sendMessage.setText("Hello, World!\nThis is my documentation:\n\uD83C\uDDEC\uD83C\uDDE7 - https://telegra.ph/Bulkas-anti-spam-bot-05-28\n\uD83C\uDDFA\uD83C\uDDE6 - https://telegra.ph/Bulochnij-anti-spam-bot-05-28");
+                sendMessage.setText(lm.getString(chat.getLanguage(), "bot.start"));
                 sendMessage.setDisableWebPagePreview(true);
                 sendMessage(sendMessage);
             }
@@ -87,7 +81,7 @@ public class Bot extends TelegramLongPollingBot {
                 chat.reloadAdmins();
                 SendMessage sendMessage = new SendMessage();
                 sendMessage.setChatId(chat.getId());
-                sendMessage.setText("Reloaded admins!");
+                sendMessage.setText(lm.getString(chat.getLanguage(), "bot.reload_adm"));
                 sendMessage(sendMessage);
             }
         });
@@ -133,10 +127,10 @@ public class Bot extends TelegramLongPollingBot {
 
                 if(userID != 0) {
                     if(chat.getWhitelist().contains(userID)){
-                        sendMessage.setText("User " + userID + " already in the whitelist");
+                        sendMessage.setText(String.format(lm.getString(chat.getLanguage(), "bot.already_added_to_wl"), userID));
                     } else {
                         chat.getWhitelist().add(userID);
-                        sendMessage.setText("Added user " + userID + " to the whitelist");
+                        sendMessage.setText(String.format(lm.getString(chat.getLanguage(), "bot.added_to_wl"), userID));
                     }
                 }
                 sendMessage(sendMessage);
@@ -158,9 +152,9 @@ public class Bot extends TelegramLongPollingBot {
 
                 if(userID != 0) {
                     if(chat.getWhitelist().remove(userID)) {
-                        sendMessage.setText("Removed user " + userID + " from the whitelist");
+                        sendMessage.setText(String.format(lm.getString(chat.getLanguage(), "bot.removed_from_wl"), userID));
                     } else {
-                        sendMessage.setText("User " + userID + " was not in the whitelist");
+                        sendMessage.setText(String.format(lm.getString(chat.getLanguage(), "bot.wasnt_in_wl"), userID));
                     }
                 }
                 sendMessage(sendMessage);
@@ -234,30 +228,48 @@ public class Bot extends TelegramLongPollingBot {
             }
 
             case GENERAL: {
-                settingsSession.setText("Settings");
+                settingsSession.setText(lm.getString(chat.getLanguage(), "bot.settings.settings"));
                 List<InlineKeyboardButton> row1 = new ArrayList<>();
                 List<InlineKeyboardButton> row2 = new ArrayList<>();
                 List<InlineKeyboardButton> row3 = new ArrayList<>();
+                List<InlineKeyboardButton> row4 = new ArrayList<>();
                 if (chat.isCanUserUseCommands()) {
-                    row1.add(createInlineKeyboardButton("Commands for non-admins ✅", "deny_commands_for_members"));
+                    row1.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.settings.commands_for_na") + " ✅", "deny_commands_for_members"));
                 } else {
-                    row1.add(createInlineKeyboardButton("Commands for non-admins ❌", "allow_commands_for_members"));
+                    row1.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.settings.commands_for_na") + " ❌", "allow_commands_for_members"));
                 }
                 if (chat.isEnableTriggers()) {
-                    row2.add(createInlineKeyboardButton("Triggers ✅", "disable_triggers"));
+                    row2.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.settings.triggers") + " ✅", "disable_triggers"));
                 } else {
-                    row2.add(createInlineKeyboardButton("Triggers ❌", "enable_triggers"));
+                    row2.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.settings.triggers") + " ❌", "enable_triggers"));
                 }
-                row3.add(createInlineKeyboardButton("Triggers Settings ⚙\uFE0F", "goto_triggers"));
+
+                row3.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.settings.language") + getFlagFromChat(chat), "goto_lang_settings"));
+                row4.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.settings.triggers_settings"), "goto_triggers"));
                 keyboard.add(row1);
                 keyboard.add(row2);
                 keyboard.add(row3);
+                keyboard.add(row4);
+                break;
+            }
+
+            case LANGUAGES: {
+                settingsSession.setText(lm.getString(chat.getLanguage(), "bot.language.language") + getFlagFromChat(chat));
+                List<InlineKeyboardButton> en = new ArrayList<>();
+                List<InlineKeyboardButton> uk = new ArrayList<>();
+                en.add(createInlineKeyboardButton("\uD83C\uDDEC\uD83C\uDDE7", "select_lang_en"));
+                uk.add(createInlineKeyboardButton("\uD83C\uDDFA\uD83C\uDDE6", "select_lang_uk"));
+                keyboard.add(en);
+                keyboard.add(uk);
+                ArrayList<InlineKeyboardButton> backToGeneralSettingsKeyboardButtonRow = new ArrayList<>();
+                backToGeneralSettingsKeyboardButtonRow.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.settings.back_to_gen"), "back_to_general_settings"));
+                keyboard.add(backToGeneralSettingsKeyboardButtonRow);
                 break;
             }
 
             case TRIGGERS: {
                 int page = settingsSession.getPage();
-                settingsSession.setText("Triggers\nPage: " + (page + 1) + "/" + (settingsSession.getTriggerPages()));
+                settingsSession.setText(lm.getString(chat.getLanguage(), "bot.triggers.triggers") + (page + 1) + "/" + (settingsSession.getTriggerPages()));
                 if (page != 0) {
                     rowArrows.add(arrowLeftSettingsKeyboardButton);
                     rowArrows.add(arrowLeftENDSettingsKeyboardButton);
@@ -281,6 +293,8 @@ public class Bot extends TelegramLongPollingBot {
                     keyboard.add(row);
                 }
                 keyboard.add(rowArrows);
+                ArrayList<InlineKeyboardButton> backToGeneralSettingsKeyboardButtonRow = new ArrayList<>();
+                backToGeneralSettingsKeyboardButtonRow.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.settings.back_to_gen"), "back_to_general_settings"));
                 keyboard.add(backToGeneralSettingsKeyboardButtonRow);
                 break;
             }
@@ -292,30 +306,34 @@ public class Bot extends TelegramLongPollingBot {
                 if (triggerText.length() >= 300) {
                     triggerText = new StringBuilder(trigger.getText().substring(0, 300)).append("...");
                 }
-                settingsSession.setText("Trigger: " + triggerText);
+                settingsSession.setText(lm.getString(chat.getLanguage(), "bot.triggers.trigger") + triggerText);
                 List<InlineKeyboardButton> row1 = new ArrayList<>();
                 List<InlineKeyboardButton> row2 = new ArrayList<>();
                 List<InlineKeyboardButton> row3 = new ArrayList<>();
                 if (trigger.isStrict()) {
-                    row1.add(createInlineKeyboardButton("Strict ✅", "do_trigger_not_strict_" + triggerID));
+                    row1.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.triggers.strict") + " ✅", "do_trigger_not_strict_" + triggerID));
                 } else {
-                    row1.add(createInlineKeyboardButton("Strict ❌", "do_trigger_strict_" + triggerID));
+                    row1.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.triggers.strict") + " ❌", "do_trigger_strict_" + triggerID));
                 }
                 if (trigger.isLethal()) {
-                    row1.add(createInlineKeyboardButton("Lethal ✅", "do_trigger_not_lethal_" + triggerID));
+                    row1.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.triggers.lethal") + " ✅", "do_trigger_not_lethal_" + triggerID));
                 } else {
-                    row1.add(createInlineKeyboardButton("Lethal ❌", "do_trigger_lethal_" + triggerID));
+                    row1.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.triggers.lethal") + " ❌", "do_trigger_lethal_" + triggerID));
                 }
                 if (trigger.isAdvancedCheck()) {
-                    row2.add(createInlineKeyboardButton("AdvancedCheck ✅", "do_trigger_not_advanced_check_" + triggerID));
+                    row2.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.triggers.advcheck") + " ✅", "do_trigger_not_advanced_check_" + triggerID));
                 } else {
-                    row2.add(createInlineKeyboardButton("AdvancedCheck ❌", "do_trigger_advanced_check_" + triggerID));
+                    row2.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.triggers.advcheck") + " ❌", "do_trigger_advanced_check_" + triggerID));
                 }
-                row3.add(createInlineKeyboardButton("Remove trigger", "remove_trigger_" + triggerID));
+                row3.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.triggers.remove"), "remove_trigger_" + triggerID));
                 keyboard.add(row1);
                 keyboard.add(row2);
                 keyboard.add(row3);
+                ArrayList<InlineKeyboardButton> backToTriggersSettingsKeyboardButtonRow = new ArrayList<>();
+                backToTriggersSettingsKeyboardButtonRow.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.settings.back_to_trig"), "back_to_triggers_settings"));
                 keyboard.add(backToTriggersSettingsKeyboardButtonRow);
+                ArrayList<InlineKeyboardButton> backToGeneralSettingsKeyboardButtonRow = new ArrayList<>();
+                backToGeneralSettingsKeyboardButtonRow.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.settings.back_to_gen"), "back_to_general_settings"));
                 keyboard.add(backToGeneralSettingsKeyboardButtonRow);
                 break;
             }
@@ -324,6 +342,8 @@ public class Bot extends TelegramLongPollingBot {
 
             }
         }
+        ArrayList<InlineKeyboardButton> closeSettingsKeyboardButtonRow = new ArrayList<>();
+        closeSettingsKeyboardButtonRow.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.settings.close_settings"), "close_settings"));
         keyboard.add(closeSettingsKeyboardButtonRow);
 
         inlineKeyboardMarkup.setKeyboard(keyboard);
@@ -552,7 +572,7 @@ public class Bot extends TelegramLongPollingBot {
             sendTriggerMessage.setReplyToMessageId(message.getMessageId());
             sendTriggerMessage.setText(chat.getTriggerText());
             List<InlineKeyboardButton> row = new ArrayList<>();
-            row.add(imNotABotKeyboardButton);
+            row.add(createInlineKeyboardButton(lm.getString(chat.getLanguage(), "bot.triggers.imnotabot"), "im_not_a_bot"));
             List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
             keyboard.add(row);
             InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup(keyboard);
@@ -727,6 +747,18 @@ public class Bot extends TelegramLongPollingBot {
         return settingsSessions;
     }
 
+    public String getFlagFromChat(Chat chat){
+        String lang = chat.getLanguage();
+        switch (lang){
+            case "uk":
+                return "\uD83C\uDDFA\uD83C\uDDE6";
+            case "en":
+                return "\uD83C\uDDEC\uD83C\uDDE7";
+            default:
+                return "fnf";
+        }
+    }
+
     @Override
     public void onUpdatesReceived(List<Update> updates) {
         super.onUpdatesReceived(updates);
@@ -756,5 +788,13 @@ public class Bot extends TelegramLongPollingBot {
     @Override
     public String getBotUsername() {
         return username;
+    }
+
+    public LocalizationManager getLm() {
+        return lm;
+    }
+
+    public HashMap<String, Timer> getWaitingTriggerTimers() {
+        return waitingTriggerTimers;
     }
 }

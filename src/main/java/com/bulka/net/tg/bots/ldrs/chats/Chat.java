@@ -21,6 +21,7 @@ public class Chat implements Serializable {
     private String triggerText = "Your text may contain prohibited text. If you are not a bot, click the button below.\nYou have 60 seconds, after your message will be deleted";
     private boolean canUserUseCommands = false;
     private boolean enableTriggers = true;
+    private String language = "en";
     private transient List<Long> admins = new ArrayList<>();
 
     public Chat(long id, String title) {
@@ -112,5 +113,14 @@ public class Chat implements Serializable {
 
     public void setTriggerText(String triggerText) {
         this.triggerText = triggerText;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        triggerText = Main.getBot().getLm().getString(language, "bot.triggers.trigger_text");
+        this.language = language;
     }
 }

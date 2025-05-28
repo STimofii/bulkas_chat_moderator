@@ -5,6 +5,5 @@ public enum SettingsMenu {
     GENERAL,
     TRIGGERS,
     TRIGGER,
-    WHITELIST,
-    WHITEUSER
+    LANGUAGES
 }
