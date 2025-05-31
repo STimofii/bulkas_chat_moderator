@@ -41,7 +41,7 @@ public class Bot extends TelegramLongPollingBot {
     public InlineKeyboardButton arrowLeftENDSettingsKeyboardButton;
     public InlineKeyboardButton arrowRightENDSettingsKeyboardButton;
 
-    private LocalizationManager lm;
+    private final LocalizationManager lm;
 
     public Bot(DefaultBotOptions defaultBotOptions, String token, String username) {
         super(defaultBotOptions, token);
@@ -105,7 +105,7 @@ public class Bot extends TelegramLongPollingBot {
                 sendMessage.setChatId(chat.getId());
 
                 StringBuilder sb = new StringBuilder("Whitelist:\n");
-                for (long userID : chat.getWhitelist()){
+                for (long userID : chat.getWhitelist()) {
                     sb.append(userID).append(", ");
                 }
                 sendMessage.setText(sb.toString());
@@ -121,12 +121,12 @@ public class Bot extends TelegramLongPollingBot {
                 long userID = 0;
                 try {
                     userID = Long.parseLong(arguments);
-                } catch (Exception e){
+                } catch (Exception e) {
                     userID = update.getMessage().getReplyToMessage().getFrom().getId();
                 }
 
-                if(userID != 0) {
-                    if(chat.getWhitelist().contains(userID)){
+                if (userID != 0) {
+                    if (chat.getWhitelist().contains(userID)) {
                         sendMessage.setText(String.format(lm.getString(chat.getLanguage(), "bot.already_added_to_wl"), userID));
                     } else {
                         chat.getWhitelist().add(userID);
@@ -146,12 +146,12 @@ public class Bot extends TelegramLongPollingBot {
                 long userID = 0;
                 try {
                     userID = Long.parseLong(arguments);
-                } catch (Exception e){
+                } catch (Exception e) {
                     userID = update.getMessage().getReplyToMessage().getFrom().getId();
                 }
 
-                if(userID != 0) {
-                    if(chat.getWhitelist().remove(userID)) {
+                if (userID != 0) {
+                    if (chat.getWhitelist().remove(userID)) {
                         sendMessage.setText(String.format(lm.getString(chat.getLanguage(), "bot.removed_from_wl"), userID));
                     } else {
                         sendMessage.setText(String.format(lm.getString(chat.getLanguage(), "bot.wasnt_in_wl"), userID));
@@ -189,7 +189,7 @@ public class Bot extends TelegramLongPollingBot {
                 deleteMessage(chat.getId(), update.getMessage().getMessageId());
                 saveChat(chat);
                 Message replyTo = update.getMessage().getReplyToMessage();
-                if(!chat.containsTrigger(replyTo.getText())){
+                if (!chat.containsTrigger(replyTo.getText())) {
                     chat.getTriggers().add(new Trigger(replyTo.getText(), false, false, false));
                 }
                 deleteMessage(replyTo.getChatId(), replyTo.getMessageId());
@@ -204,7 +204,7 @@ public class Bot extends TelegramLongPollingBot {
                 settingsSessions.put(chat.getId(), settingsSession);
                 settingsSession.setChat(chat);
                 settingsSession.setSettingsMenu(SettingsMenu.TRIGGER);
-                settingsSession.setCurrentListID(chat.getTriggers().size()-1);
+                settingsSession.setCurrentListID(chat.getTriggers().size() - 1);
                 InlineKeyboardMarkup inlineKeyboardMarkup = getKeyboardMarkup(settingsSession);
                 sendMessage.setText(settingsSession.getText());
                 sendMessage.setReplyMarkup(inlineKeyboardMarkup);
@@ -338,7 +338,7 @@ public class Bot extends TelegramLongPollingBot {
                 break;
             }
 
-            default:{
+            default: {
 
             }
         }
@@ -480,7 +480,7 @@ public class Bot extends TelegramLongPollingBot {
             if (update.hasMessage()) {
                 Message message = update.getMessage();
                 if (message.hasText()) {
-                    if(message.getChat().isUserChat()){
+                    if (message.getChat().isUserChat()) {
                         sendMessage(message.getChatId(), "Sorry, I works only in groups");
                         return;
                     }
@@ -512,19 +512,20 @@ public class Bot extends TelegramLongPollingBot {
                         canBeSpam = !checkCommand(update, chat, isAdmin);
                     }
 
-
-                    if (canBeSpam && chat.isEnableTriggers() && !chat.getTriggers().isEmpty()) {
-                        text = text.toLowerCase();
-                        for (Trigger trigger : chat.getTriggers()) {
-                            if (trigger.isStrict()) {
-                                if (text.equals(trigger.getText())) {
-                                    if(checkTriggerFinally(trigger, message, chat))
-                                        break;
-                                }
-                            } else {
-                                if (text.contains(trigger.getText())) {
-                                    if(checkTriggerFinally(trigger, message, chat))
-                                        break;
+                    if(!chat.getWhitelist().contains(user_id)) {
+                        if (canBeSpam && chat.isEnableTriggers() && !chat.getTriggers().isEmpty()) {
+                            text = text.toLowerCase();
+                            for (Trigger trigger : chat.getTriggers()) {
+                                if (trigger.isStrict()) {
+                                    if (text.equals(trigger.getText())) {
+                                        if (checkTriggerFinally(trigger, message, chat))
+                                            break;
+                                    }
+                                } else {
+                                    if (text.contains(trigger.getText())) {
+                                        if (checkTriggerFinally(trigger, message, chat))
+                                            break;
+                                    }
                                 }
                             }
                         }
@@ -532,7 +533,7 @@ public class Bot extends TelegramLongPollingBot {
                 }
             } else if (update.hasCallbackQuery()) {
                 CallbackQuery callback = update.getCallbackQuery();
-                if(Objects.equals(callback.getData(), "im_not_a_bot")){
+                if (Objects.equals(callback.getData(), "im_not_a_bot")) {
                     //TODO: чтобы отменять мог только человек который отправил сообщение или админ
                     waitingTriggerTimers.remove(callback.getMessage().getChatId() + "/" + callback.getMessage().getMessageId());
                     deleteMessage(callback.getMessage().getChatId(), callback.getMessage().getMessageId());
@@ -553,9 +554,9 @@ public class Bot extends TelegramLongPollingBot {
             }
         } else {
             punishTrigger(chat, trigger, message);
-            return  true;
+            return true;
         }
-        return  false;
+        return false;
     }
 
     public boolean advancedCheck(User user) {
@@ -747,9 +748,9 @@ public class Bot extends TelegramLongPollingBot {
         return settingsSessions;
     }
 
-    public String getFlagFromChat(Chat chat){
+    public String getFlagFromChat(Chat chat) {
         String lang = chat.getLanguage();
-        switch (lang){
+        switch (lang) {
             case "uk":
                 return "\uD83C\uDDFA\uD83C\uDDE6";
             case "en":
@@ -781,6 +782,8 @@ public class Bot extends TelegramLongPollingBot {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+        auth.add(1087968824L);
+        auth.add(777000L);
 
         return auth;
     }
