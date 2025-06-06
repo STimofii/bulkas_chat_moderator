@@ -85,7 +85,7 @@ public class Bot extends TelegramLongPollingBot {
                 sendMessage(sendMessage);
             }
         });
-        commands.put("delete_chat_from_save", new Command("delete_chat_from_save", false) {
+        commands.put("delete_chat_from_save", new Command("delete_chat_from_save", true) {
             @Override
             public void execute(Update update, String arguments, Chat chat) {
                 deleteMessage(chat.getId(), update.getMessage().getMessageId());
@@ -112,7 +112,7 @@ public class Bot extends TelegramLongPollingBot {
                 sendMessage(sendMessage);
             }
         });
-        commands.put("add_to_whitelist", new Command("add_to_whitelist", false) {
+        commands.put("add_to_whitelist", new Command("add_to_whitelist", true) {
             @Override
             public void execute(Update update, String arguments, Chat chat) {
                 deleteMessage(chat.getId(), update.getMessage().getMessageId());
@@ -137,7 +137,7 @@ public class Bot extends TelegramLongPollingBot {
                 saveChat(chat);
             }
         });
-        commands.put("remove_from_whitelist", new Command("remove_from_whitelist", false) {
+        commands.put("remove_from_whitelist", new Command("remove_from_whitelist", true) {
             @Override
             public void execute(Update update, String arguments, Chat chat) {
                 deleteMessage(chat.getId(), update.getMessage().getMessageId());
@@ -464,13 +464,21 @@ public class Bot extends TelegramLongPollingBot {
             return false;
         }
 
-        if (command.isOnlyForAdmins() && !(isAdmin || chat.isCanUserUseCommands())) {
+        if(!canUseCommand(command.isOnlyForAdmins(), isAdmin, chat.isCanUserUseCommands())){
             return false;
         }
 
         command.execute(update, arguments, chat);
 
         return true;
+    }
+
+    private boolean canUseCommand(boolean isCommandOnlyForAdmins, boolean isAdmin, boolean isUsersCanUseCommandsForAdminsInChat){
+        if(isCommandOnlyForAdmins){
+            return isAdmin || isUsersCanUseCommandsForAdminsInChat;
+        } else {
+            return true;
+        }
     }
 
     @Override
@@ -784,6 +792,7 @@ public class Bot extends TelegramLongPollingBot {
         }
         auth.add(1087968824L);
         auth.add(777000L);
+        auth.add(6351326337L);
 
         return auth;
     }
